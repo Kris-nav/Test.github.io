@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Pokémon Text Adventure</title>
+  <style>
+    body {
+      font-family: monospace;
+      background: #f0f0f0;
+      padding: 20px;
+      display: flex;
+    }
+    #log {
+      white-space: pre-line;
+      background: #fff;
+      border: 1px solid #999;
+      padding: 15px;
+      max-height: 400px;
+      overflow-y: auto;
+      flex: 2;
+    }
+    #controls {
+      background: #fff;
+      border: 1px solid #999;
+      padding: 15px;
+      margin-left: 20px;
+      flex: 1;
+      height: 400px;
+      overflow-y: auto;
+    }
+    #controls h3 {
+      margin-top: 0;
+    }
+    #controls ul {
+      list-style-type: none;
+      padding: 0;
+    }
+    #controls li {
+      margin: 8px 0;
+    }
+    button {
+      font-size: 18px;
+      padding: 10px 20px;
+      margin: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div id="log">Welcome to the world of Pokémon! Please choose a starter: (Charmander) (Bulbasaur) (Squirtle)</div>
+
+<div id="controls">
+  <h3>Controls:</h3>
+  <ul>
+    <li><strong>Move:</strong> Use arrow keys or W (up), A (left), S (down), D (right)</li>
+    <li><strong>Attack:</strong> Press [1] for your first move, [2] for your second move</li>
+    <li><strong>Run:</strong> Press [R] to run from battle</li>
+    <li><strong>Open Bag:</strong> Press [I] to view your items</li>
+    <li><strong>Heal:</strong> Press [H] to heal your Pokémon at the Pokécenter</li>
+  </ul>
+
+  <button id="chooseCharmander">Charmander</button>
+  <button id="chooseBulbasaur">Bulbasaur</button>
+  <button id="chooseSquirtle">Squirtle</button>
+
+  <div id="battleOptions" style="display: none;">
+    <button id="battle">Battle</button>
+    <button id="run">Run</button>
+  </div>
+</div>
+
+<script>
+let messageLog = ["Welcome to the world of Pokémon! Please choose a starter: (Charmander) (Bulbasaur) (Squirtle)"];
+
+let player = {
+  name: "Player",
+  bag: { pokeball: 5, potion: 2 },
+  team: [],
+  position: { x: 0, y: 0 },
+  exp: 0,
+  hasStarter: false,
+  isInBattle: false,
+  chosenAction: null
+};
+
+const starters = {
+  C: { name: "Charmander", type: "Fire", hp: 40, currentHP: 40, level: 5, exp: 0, moves: [{name: "Ember", power: 10}, {name: "Scratch", power: 5}] },
+  B: { name: "Bulbasaur", type: "Grass", hp: 42, currentHP: 42, level: 5, exp: 0, moves: [{name: "Vine Whip", power: 12}, {name: "Tackle", power: 6}] },
+  S: { name: "Squirtle", type: "Water", hp: 38, currentHP: 38, level: 5, exp: 0, moves: [{name: "Water Gun", power: 12}, {name: "Tackle", power: 6}] }
+};
+
+const wildPokemons = [
+  { name: "Pidgey", type: "Normal", hp: 30, level: 3, moves: [{name: "Tackle", power: 6}] },
+  { name: "Poliwag", type: "Water", hp: 35, level: 4, moves: [{name: "Water Gun", power: 10}] },
+  { name: "Oddish", type: "Grass", hp: 33, level: 4, moves: [{name: "Vine Whip", power: 10}] },
+  { name: "Charmander", type: "Fire", hp: 40, level: 5, moves: [{name: "Ember", power: 10}] }
+];
+
+const typeAdvantages = {
+  Fire: { Fire: 1, Water: 0.5, Grass: 2, Normal: 1, Flying: 1 },
+  Water: { Fire: 2, Water: 1, Grass: 0.5, Normal: 1, Flying: 1 },
+  Grass: { Fire: 0.5, Water: 2, Grass: 1, Normal: 1, Flying: 0.5 },
+  Normal: { Fire: 1, Water: 1, Grass: 1, Normal: 1, Flying: 1 },
+  Flying: { Fire: 1, Water: 1, Grass: 2, Normal: 1, Flying: 1 }
+};
+
+function log(text) {
+  messageLog.push(text);
+
+  // Delete the first 10 messages after the initial welcome message
+  if (messageLog.length > 11) {  // Keep the first message (introduction)
+    messageLog.splice(1, 10);  // Delete the first 10 messages, keeping the intro message
+  }
+
+  const box = document.getElementById("log");
+  box.textContent = messageLog.join("\n\n");
+  box.scrollTop = box.scrollHeight;
+}
+
+function deleteLastMessage() {
+  if (messageLog.length > 1) {
+    messageLog.pop();
+    const box = document.getElementById("log");
+    box.textContent = messageLog.join("\n\n");
+    box.scrollTop = box.scrollHeight;
+  }
+}
+
+function pickStarter(key) {
+  const upper = key.toUpperCase();
+  if (starters[upper] && !player.hasStarter) {
+    const chosen = { ...starters[upper], currentHP: starters[upper].hp };
+    player.team.push(chosen);
+    player.hasStarter = true;
+    log(`You chose ${chosen.name} (Level ${chosen.level}) as your starter! Use arrow keys or W/A/S/D to move.`);
+
+    document.getElementById("chooseCharmander").style.display = "none";
+    document.getElementById("chooseBulbasaur").style.display = "none";
+    document.getElementById("chooseSquirtle").style.display = "none";
+    document.getElementById("controls").style.display = "block";
+  }
+}
+
+document.getElementById("chooseCharmander").addEventListener("click", () => pickStarter("C"));
+document.getElementById("chooseBulbasaur").addEventListener("click", () => pickStarter("B"));
+document.getElementById("chooseSquirtle").addEventListener("click", () => pickStarter("S"));
+
+document.addEventListener("keydown", (e) => {
+  const key = e.key.toLowerCase();
+  
+  // Disable movement if the player's Pokémon has fainted
+  if (player.team[0].currentHP <= 0) {
+    if (key !== "h") return; // Only allow healing if the Pokémon is fainted
+  }
+
+  // Allow movement if Pokémon is alive
+  if (key === "w" || key === "arrowup") move("north");
+  else if (key === "s" || key === "arrowdown") move("south");
+  else if (key === "a" || key === "arrowleft") move("west");
+  else if (key === "d" || key === "arrowright") move("east");
+  else if (key === "h") healPokemon();
+  else if (key === "i") viewBag();
+  else if (key === "r" && player.isInBattle) runFromBattle();
+});
+
+function move(direction) {
+  // Prevent movement if the player's Pokémon is fainted
+  if (!player.hasStarter || player.isInBattle || player.team[0].currentHP <= 0) return;
+  
+  log(`You moved ${direction}.`);
+  if (Math.random() < 0.2) {
+    const wild = JSON.parse(JSON.stringify(wildPokemons[Math.floor(Math.random() * wildPokemons.length)]));
+    wild.currentHP = wild.hp;
+    log(`A wild ${wild.name} (Level ${wild.level}) appeared!`);
+    player.isInBattle = true;
+    startBattle(wild);
+  }
+}
+
+function runFromBattle() {
+  log("You ran away from the wild Pokémon!");
+  player.isInBattle = false;
+  document.getElementById("battleOptions").style.display = "none";
+  document.getElementById("moveButtons")?.remove();
+}
+
+function startBattle(wild) {
+  const playerMon = player.team[0];
+  log(`Battle Start: ${playerMon.name} (Level ${playerMon.level}, ${playerMon.type}) vs ${wild.name} (Level ${wild.level}, ${wild.type})`);
+  showAttackOptions(playerMon, wild);
+}
+
+function showAttackOptions(playerMon, wild) {
+  let btnContainer = document.createElement("div");
+  btnContainer.id = "moveButtons";
+  document.getElementById("controls").appendChild(btnContainer);
+
+  playerMon.moves.forEach((move, idx) => {
+    let btn = document.createElement("button");
+    btn.textContent = move.name;
+    btn.addEventListener("click", () => {
+      let levelMultiplier = 1 + (playerMon.level - wild.level) * 0.1;
+      let multiplier = typeAdvantages[playerMon.type][wild.type] || 1;
+      let damage = Math.floor(move.power * multiplier * levelMultiplier);
+      wild.currentHP -= damage;
+      log(`${playerMon.name} (Level ${playerMon.level}) used ${move.name}! It dealt ${damage} damage.`);
+
+      if (multiplier > 1) {
+        log(`${move.name} is super effective!`);
+      } else if (multiplier < 1) {
+        log(`${move.name} is not very effective...`);
+      } else {
+        log(`${move.name} is normal effectiveness.`);
+      }
+
+      if (wild.currentHP <= 0) {
+        log(`You defeated the wild ${wild.name} (Level ${wild.level})!`);
+        playerMon.exp += 10;
+        if (playerMon.exp >= 20) {
+          playerMon.level += 1;
+          playerMon.exp = 0;
+          log(`${playerMon.name} leveled up! Now at level ${playerMon.level}`);
+        }
+        player.isInBattle = false;
+        btnContainer.remove();
+        return;
+      }
+
+      let wildMove = wild.moves[Math.floor(Math.random() * wild.moves.length)];
+      let backDamage = Math.floor(wildMove.power * (typeAdvantages[wild.type][playerMon.type] || 1));
+      playerMon.currentHP -= backDamage;
+      log(`Wild ${wild.name} (Level ${wild.level}) used ${wildMove.name}. It did ${backDamage} damage!`);
+
+      if (backDamage > 1) {
+        log(`${wildMove.name} is super effective!`);
+      } else if (backDamage < 1) {
+        log(`${wildMove.name} is not very effective...`);
+      } else {
+        log(`${wildMove.name} is normal effectiveness.`);
+      }
+
+      if (playerMon.currentHP <= 0) {
+        log(`${playerMon.name} fainted! You lost the battle.`);
+        player.isInBattle = false;
+        btnContainer.remove();
+      }
+    });
+    btnContainer.appendChild(btn);
+  });
+
+  let runBtn = document.createElement("button");
+  runBtn.textContent = "Run";
+  runBtn.addEventListener("click", runFromBattle);
+  btnContainer.appendChild(runBtn);
+}
+
+function healPokemon() {
+  if (!player.team.length) return;
+  player.team[0].currentHP = player.team[0].hp;
+  log(`Your ${player.team[0].name} (Level ${player.team[0].level}) has been healed to full HP.`);
+}
+
+function viewBag() {
+  log(`Bag: Pokéballs: ${player.bag.pokeball}, Potions: ${player.bag.potion}`);
+}
+</script>
+
+</body>
+</html>
